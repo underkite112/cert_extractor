@@ -71,6 +71,7 @@ with col3:
         key=f"minutes_{st.session_state.uploader_key}",
     )
 
+st.write("")
 st.caption(":red[*] 표시된 항목은 필수 업로드입니다. (회의록은 MMoIP 인증범위 보완용 선택 항목)")
 
 
