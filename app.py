@@ -237,6 +237,29 @@ def extract_minutes_table(file_bytes):
         return pd.DataFrame()
 
 
+COUNTRY_EN_MAP = {
+    "대한민국": "Republic of Korea",
+    "한국": "Republic of Korea",
+    "독일": "Germany",
+    "미국": "United States",
+    "일본": "Japan",
+    "중국": "China",
+    "대만": "Taiwan",
+    "영국": "United Kingdom",
+    "프랑스": "France",
+    "네덜란드": "Netherlands",
+    "스웨덴": "Sweden",
+    "캐나다": "Canada",
+}
+
+
+def to_country_en(country_kr):
+    if not country_kr:
+        return ""
+    country_kr = str(country_kr).strip()
+    return COUNTRY_EN_MAP.get(country_kr, country_kr)
+
+
 def calc_expiry(date_str):
     """'2026. 8. 21.' 형태 문자열 → (시작일 문자열, 만료일 문자열)"""
     m = re.search(r"(\d{4})\D+(\d{1,2})\D+(\d{1,2})", date_str or "")
@@ -298,8 +321,27 @@ def resolve_scope(criteria, extracted_scope, minutes_scope):
     return extracted_scope or minutes_scope or ""
 
 
-def autosize_worksheet(ws, df, max_width=60, min_width=8, char_px=1.1, line_height=15):
-    """열 너비는 각 컬럼에서 가장 긴 줄(개행 기준) 길이에 맞추고,
+def _display_width(s):
+    """한글/한자 등 CJK 문자는 폭이 라틴 문자의 약 2배이므로 가중치를 둬서 길이를 계산."""
+    w = 0
+    for ch in s:
+        code = ord(ch)
+        if (
+            0x1100 <= code <= 0x11FF   # 한글 자모
+            or 0x3130 <= code <= 0x318F  # 한글 호환 자모
+            or 0xAC00 <= code <= 0xD7A3  # 한글 음절
+            or 0x4E00 <= code <= 0x9FFF  # 한자
+            or 0x3000 <= code <= 0x303F  # CJK 기호
+            or 0xFF00 <= code <= 0xFFEF  # 전각
+        ):
+            w += 2
+        else:
+            w += 1
+    return w
+
+
+def autosize_worksheet(ws, df, max_width=60, min_width=8, char_px=0.95, line_height=15):
+    """열 너비는 각 컬럼에서 가장 긴 줄(개행 기준, 한글 가중치 반영) 길이에 맞추고,
     행 높이는 그 행에서 가장 많은 줄 수를 가진 셀에 맞춘다."""
     from openpyxl.utils import get_column_letter
 
@@ -308,7 +350,7 @@ def autosize_worksheet(ws, df, max_width=60, min_width=8, char_px=1.1, line_heig
         lines = [str(col)]
         for val in df[col].astype(str):
             lines.extend(val.split("\n"))
-        longest = max((len(l) for l in lines), default=10)
+        longest = max((_display_width(l) for l in lines), default=10)
         width = min(max_width, max(min_width, longest * char_px + 2))
         ws.column_dimensions[col_letter].width = width
 
@@ -361,6 +403,10 @@ if mgmt_file and summary_files:
         country = extracted.get("제조국가(추출)") or ""
         제조자국가_국문 = f"{manu} / {country}".strip(" /")
 
+        manu_en = 업체명_영문 or manu
+        country_en = to_country_en(country)
+        제조자국가_영문 = f"{manu_en} / {country_en}".strip(" /")
+
         # 인증범위: (1) 회의록에서 시험번호로 매칭 시도 (MMoIP 등) → (2) 요약서 추출값과 함께
         #           양식(인증기준) 기준 고정 문구 로직(resolve_scope)에 넣어 최종 결정
         minutes_scope = None
@@ -387,6 +433,7 @@ if mgmt_file and summary_files:
                 "제품명": 제품명,
                 "모델명": 모델명_전체,
                 "제조자및제조국가_국문": 제조자국가_국문,
+                "제조자및제조국가_영문": 제조자국가_영문,
                 "인증연월일": extracted.get("인증연월일(추출)"),
                 "유효기간_시작일": 시작일,
                 "유효기간_만료일": 만료일,
@@ -404,17 +451,26 @@ if mgmt_file and summary_files:
     st.subheader("결과 (직접 수정 가능)")
     edited_df = st.data_editor(result_df, use_container_width=True, num_rows="dynamic", height=500)
 
-    # 엑셀 다운로드 (열 너비/행 높이 자동 맞춤 + 줄바꿈 서식)
+    # 엑셀 다운로드 (헤더 색상 + 열 너비/행 높이 자동 맞춤 + 줄바꿈 서식)
     buf = io.BytesIO()
     with pd.ExcelWriter(buf, engine="openpyxl") as writer:
         edited_df.to_excel(writer, index=False, sheet_name="인증서데이터")
         ws = writer.sheets["인증서데이터"]
 
-        from openpyxl.styles import Alignment
+        from openpyxl.styles import Alignment, Font, PatternFill
+
         wrap = Alignment(horizontal="left", vertical="top", wrap_text=True)
-        for row in ws.iter_rows(min_row=1, max_row=ws.max_row, min_col=1, max_col=ws.max_column):
+        header_font = Font(bold=True, color="FFFFFF")
+        header_fill = PatternFill("solid", fgColor="4472C4")
+        header_align = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+        for row in ws.iter_rows(min_row=2, max_row=ws.max_row, min_col=1, max_col=ws.max_column):
             for cell in row:
                 cell.alignment = wrap
+        for cell in ws[1]:
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = header_align
 
         autosize_worksheet(ws, edited_df)
         ws.freeze_panes = "A2"
