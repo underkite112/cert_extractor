@@ -22,29 +22,52 @@ st.title("📄 TTA 인증서 발급용 데이터 추출기")
 
 st.markdown(
     """
-    
+    <br>
     1. **인증 제품 관리 목록 엑셀**을 업로드.
     2. **시험결과요약서 PDF**를 업로드(여러 개 동시 선택 가능). 표지에 있는 **인증번호**를 기준으로
        인증 제품 관리 목록과 매칭됨.
     3. 인터넷전화(MMoIP) 인증 건은 **인증심의위원회 회의록(.hwp)** 도 업로드.
        인증범위 및 제조국가를 회의록에서 가져옴.
     4. 결과 표를 화면에서 확인 및 수정한 뒤, 엑셀로 다운로드.
-    
+    <br>
     """
 )
 
 # ──────────────────────────────────────────────────────────────
 # 업로드
 # ──────────────────────────────────────────────────────────────
+if "uploader_key" not in st.session_state:
+    st.session_state.uploader_key = 0
+
+top_left, top_right = st.columns([5, 1])
+with top_left:
+    st.subheader("📎 파일 업로드")
+with top_right:
+    st.write("")  # 세로 정렬용 여백
+    if st.button("🔄 업로드 초기화", use_container_width=True):
+        st.session_state.uploader_key += 1
+        st.rerun()
+
 col1, col2, col3 = st.columns(3)
 with col1:
-    mgmt_file = st.file_uploader("① 인증 제품 관리 목록 (.xlsx) :red[*]", type=["xlsx"])
+    mgmt_file = st.file_uploader(
+        "① 인증 제품 관리 목록 (.xlsx) :red[*]",
+        type=["xlsx"],
+        key=f"mgmt_{st.session_state.uploader_key}",
+    )
 with col2:
     summary_files = st.file_uploader(
-        "② 시험결과요약서 (.PDF, 여러 개) :red[*]", type=["pdf"], accept_multiple_files=True
+        "② 시험결과요약서 (.PDF, 여러 개) :red[*]",
+        type=["pdf"],
+        accept_multiple_files=True,
+        key=f"summary_{st.session_state.uploader_key}",
     )
 with col3:
-    minutes_file = st.file_uploader("③ 회의록 (.hwp, 선택)", type=["hwp"])
+    minutes_file = st.file_uploader(
+        "③ 회의록 (.hwp, 선택)",
+        type=["hwp"],
+        key=f"minutes_{st.session_state.uploader_key}",
+    )
 
 st.caption(":red[*] 표시된 항목은 필수 업로드입니다. (회의록은 MMoIP 인증범위 보완용 선택 항목)")
 
