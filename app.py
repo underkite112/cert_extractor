@@ -516,7 +516,7 @@ if mgmt_file and summary_files:
     result_df.insert(0, "순번", range(1, len(result_df) + 1))
 
     st.write("") 
-    st.subheader("결과 (직접 수정 가능)")
+    st.subheader("인증 정보 추출 결과 (직접 수정 가능)")
     edited_df = st.data_editor(result_df, use_container_width=True, num_rows="dynamic", height=500)
 
     # 엑셀 다운로드 (헤더 색상 + 열 너비/행 높이 자동 맞춤 + 줄바꿈 서식)
