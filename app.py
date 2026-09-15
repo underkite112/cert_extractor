@@ -37,13 +37,15 @@ st.markdown(
 # ──────────────────────────────────────────────────────────────
 col1, col2, col3 = st.columns(3)
 with col1:
-    mgmt_file = st.file_uploader("① 관리 목록 (xlsx)", type=["xlsx"])
+    mgmt_file = st.file_uploader("① 관리 목록 (xlsx) :red[*]", type=["xlsx"])
 with col2:
     summary_files = st.file_uploader(
-        "② 시험결과요약서 (PDF, 여러 개)", type=["pdf"], accept_multiple_files=True
+        "② 시험결과요약서 (PDF, 여러 개) :red[*]", type=["pdf"], accept_multiple_files=True
     )
 with col3:
     minutes_file = st.file_uploader("③ 회의록 (.hwp, 선택)", type=["hwp"])
+
+st.caption(":red[*] 표시된 항목은 필수 업로드입니다. (회의록은 MMoIP 인증범위 보완용 선택 항목)")
 
 
 # ──────────────────────────────────────────────────────────────
@@ -248,6 +250,78 @@ def calc_expiry(date_str):
 
 
 # ──────────────────────────────────────────────────────────────
+# 인증범위: 요약서/회의록에 문구가 없어도, 해당 인증서 "양식"이 정해져 있으면
+# 그 양식에서 항상 쓰는 고정 문구를 기본값으로 채운다. (인증기준 코드로 양식 판별)
+# ──────────────────────────────────────────────────────────────
+SCOPE_FIXED_BY_PREFIX = {
+    "TCN-0025": "5.8GHz DSRC 표준적합성 TTA Certified 인증",              # DSRC
+    "TCC-0007": "스마트시티 데이터허브\n(인터페이스, 데이터 모델, 기능 적합성)",  # 데이터허브
+    "TCC-0005": "스마트시티 통합플랫폼\n(기본기능, 상호연동기능, 통합기능)",     # 통합플랫폼
+    "TCC-0009": "지능형 홈네트워크 세대단말기 TTA Verified 인증\n일반, 기능, 규격, 신뢰성 및 상호운용성",  # 홈네트워크 세대단말기
+}
+MMOIP_TITLE_BY_PREFIX = {
+    "TCN-0048": "행정기관 인터넷전화 서버 보안 성능품질 Ver.4",   # 인터넷전화 서버
+    "TCN-0049": "행정기관 인터넷전화 단말 보안 성능품질 Ver.4",   # 인터넷전화 단말
+}
+
+
+def criteria_prefix(criteria):
+    if not criteria:
+        return None
+    m = re.match(r"\s*(T[A-Z]{2}-\d+)", str(criteria))
+    return m.group(1) if m else None
+
+
+def resolve_scope(criteria, extracted_scope, minutes_scope):
+    """
+    양식별로 인증범위를 채운다.
+    - DSRC/데이터허브/통합플랫폼/홈네트워크: 항상 고정 문구 (제품마다 안 바뀜)
+    - IPv6: 요약서의 기기분류(예: IPv6 Router core) + 고정 뒷문구
+    - MMoIP(인터넷전화 서버/단말): 고정 제목 + 회의록(우선)/요약서에서 뽑은 상세 문구
+    - 자급단말기 등 그 외: 요약서에서 뽑은 값을 그대로 (제품마다 다름)
+    """
+    prefix = criteria_prefix(criteria)
+
+    if prefix in SCOPE_FIXED_BY_PREFIX:
+        return SCOPE_FIXED_BY_PREFIX[prefix]
+
+    if prefix == "TCN-0024":  # IPv6
+        base = (extracted_scope or "IPv6 Router core").strip()
+        return f"{base}\n표준적합성 및 상호운용성"
+
+    if prefix in MMOIP_TITLE_BY_PREFIX:
+        title = MMOIP_TITLE_BY_PREFIX[prefix]
+        detail = (minutes_scope or extracted_scope or "").strip()
+        return f"{title}\n({detail})" if detail else title
+
+    # 그 외(자급단말기 등)는 제품마다 실제 시험범위가 달라서 고정 문구가 없음 → 추출값 사용
+    return extracted_scope or minutes_scope or ""
+
+
+def autosize_worksheet(ws, df, max_width=60, min_width=8, char_px=1.1, line_height=15):
+    """열 너비는 각 컬럼에서 가장 긴 줄(개행 기준) 길이에 맞추고,
+    행 높이는 그 행에서 가장 많은 줄 수를 가진 셀에 맞춘다."""
+    from openpyxl.utils import get_column_letter
+
+    for idx, col in enumerate(df.columns, start=1):
+        col_letter = get_column_letter(idx)
+        lines = [str(col)]
+        for val in df[col].astype(str):
+            lines.extend(val.split("\n"))
+        longest = max((len(l) for l in lines), default=10)
+        width = min(max_width, max(min_width, longest * char_px + 2))
+        ws.column_dimensions[col_letter].width = width
+
+    for row_idx in range(2, len(df) + 2):  # 2행부터 (1행은 헤더)
+        max_lines = 1
+        for col in df.columns:
+            val = df.iloc[row_idx - 2][col]
+            n_lines = str(val).count("\n") + 1
+            max_lines = max(max_lines, n_lines)
+        ws.row_dimensions[row_idx].height = line_height * max_lines
+
+
+# ──────────────────────────────────────────────────────────────
 # 메인 처리
 # ──────────────────────────────────────────────────────────────
 if mgmt_file and summary_files:
@@ -287,9 +361,10 @@ if mgmt_file and summary_files:
         country = extracted.get("제조국가(추출)") or ""
         제조자국가_국문 = f"{manu} / {country}".strip(" /")
 
-        # 인증범위: 시험결과요약서에 있으면 그것을, 없으면 회의록에서 시험번호로 검색
-        scope = extracted.get("인증범위(추출, 있는경우)")
-        if not scope and minutes_file:
+        # 인증범위: (1) 회의록에서 시험번호로 매칭 시도 (MMoIP 등) → (2) 요약서 추출값과 함께
+        #           양식(인증기준) 기준 고정 문구 로직(resolve_scope)에 넣어 최종 결정
+        minutes_scope = None
+        if minutes_file:
             minutes_df = extract_minutes_table(minutes_file.getvalue())
             if not minutes_df.empty:
                 proj_col = next((c for c in minutes_df.columns if "프로젝트" in c or "시험번호" in c), None)
@@ -297,7 +372,9 @@ if mgmt_file and summary_files:
                 if proj_col and scope_col:
                     m = minutes_df[minutes_df[proj_col].astype(str).str.contains(extracted.get("시험번호") or "!!!", na=False)]
                     if not m.empty:
-                        scope = m.iloc[0][scope_col]
+                        minutes_scope = m.iloc[0][scope_col]
+
+        scope = resolve_scope(인증기준, extracted.get("인증범위(추출, 있는경우)"), minutes_scope)
 
         시작일, 만료일 = calc_expiry(extracted.get("인증연월일(추출)"))
 
@@ -327,10 +404,21 @@ if mgmt_file and summary_files:
     st.subheader("결과 (직접 수정 가능)")
     edited_df = st.data_editor(result_df, use_container_width=True, num_rows="dynamic", height=500)
 
-    # 엑셀 다운로드
+    # 엑셀 다운로드 (열 너비/행 높이 자동 맞춤 + 줄바꿈 서식)
     buf = io.BytesIO()
     with pd.ExcelWriter(buf, engine="openpyxl") as writer:
         edited_df.to_excel(writer, index=False, sheet_name="인증서데이터")
+        ws = writer.sheets["인증서데이터"]
+
+        from openpyxl.styles import Alignment
+        wrap = Alignment(horizontal="left", vertical="top", wrap_text=True)
+        for row in ws.iter_rows(min_row=1, max_row=ws.max_row, min_col=1, max_col=ws.max_column):
+            for cell in row:
+                cell.alignment = wrap
+
+        autosize_worksheet(ws, edited_df)
+        ws.freeze_panes = "A2"
+
     st.download_button(
         "📥 엑셀로 다운로드",
         data=buf.getvalue(),
