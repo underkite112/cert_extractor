@@ -508,7 +508,6 @@ if mgmt_file and summary_files:
                 "인증기준": 인증기준,
                 "인증범위": scope,
                 "Test_Highlights": extracted.get("Test_Highlights"),
-                "__원본파일": extracted.get("__파일명"),
             }
         )
 
