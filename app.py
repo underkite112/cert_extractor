@@ -6,7 +6,6 @@ TTA 인증서 발급용 데이터 추출기 (Streamlit)
 - 인증번호를 기준으로 매칭해서 인증서 제작에 필요한 필드를 표로 뽑아주고
 - 표는 화면에서 직접 수정 가능하며, 엑셀로 다운로드할 수 있습니다.
 
-배포: Streamlit Community Cloud 등에 그대로 올리면 됩니다.
 """
 import io
 import re
@@ -23,12 +22,14 @@ st.title("📄 TTA 인증서 발급용 데이터 추출기")
 
 st.markdown(
     """
-    1. **관리 목록 엑셀**을 업로드하세요. (여러 시트를 자동으로 합칩니다)
-    2. **시험결과요약서 PDF**를 여러 개 업로드하세요. 표지에 있는 **인증번호**를 기준으로
-       관리 목록과 매칭합니다. (인증번호가 없는 요약서는 제외됩니다)
-    3. 인터넷전화(MMoIP) 관련 건이 있다면 **인증심의위원회 회의록(.hwp)** 도 업로드하세요.
-       인증범위 문구를 회의록에서 가져옵니다.
-    4. 결과 표를 화면에서 바로 수정한 뒤, 엑셀로 다운로드하세요.
+    
+    1. **인증 제품 관리 목록 엑셀**을 업로드.
+    2. **시험결과요약서 PDF**를 업로드(여러 개 동시 선택 가능). 표지에 있는 **인증번호**를 기준으로
+       인증 제품 관리 목록과 매칭됨.
+    3. 인터넷전화(MMoIP) 인증 건은 **인증심의위원회 회의록(.hwp)** 도 업로드.
+       인증범위 및 제조국가를 회의록에서 가져옴.
+    4. 결과 표를 화면에서 확인 및 수정한 뒤, 엑셀로 다운로드.
+    
     """
 )
 
@@ -37,10 +38,10 @@ st.markdown(
 # ──────────────────────────────────────────────────────────────
 col1, col2, col3 = st.columns(3)
 with col1:
-    mgmt_file = st.file_uploader("① 관리 목록 (xlsx) :red[*]", type=["xlsx"])
+    mgmt_file = st.file_uploader("① 인증 제품 관리 목록 (.xlsx) :red[*]", type=["xlsx"])
 with col2:
     summary_files = st.file_uploader(
-        "② 시험결과요약서 (PDF, 여러 개) :red[*]", type=["pdf"], accept_multiple_files=True
+        "② 시험결과요약서 (.PDF, 여러 개) :red[*]", type=["pdf"], accept_multiple_files=True
     )
 with col3:
     minutes_file = st.file_uploader("③ 회의록 (.hwp, 선택)", type=["hwp"])
@@ -243,7 +244,7 @@ COUNTRY_EN_MAP = {
     "한국": "Republic of Korea",
     "북한": "Democratic People's Republic of Korea",
     "일본": "Japan",
-    "중국": "People's Republic of China",
+    "중국": "China",
     "대만": "Taiwan",
     "홍콩": "Hong Kong",
     "미국": "United States of America",
@@ -251,8 +252,8 @@ COUNTRY_EN_MAP = {
     "멕시코": "United Mexican States",
     "브라질": "Federative Republic of Brazil",
     "아르헨티나": "Argentine Republic",
-    "독일": "Federal Republic of Germany",
-    "영국": "United Kingdom of Great Britain and Northern Ireland",
+    "독일": "Germany",
+    "영국": "United Kingdom",
     "프랑스": "French Republic",
     "이탈리아": "Italian Republic",
     "스페인": "Kingdom of Spain",
@@ -524,4 +525,4 @@ if mgmt_file and summary_files:
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
 else:
-    st.info("① 관리 목록과 ② 시험결과요약서를 업로드하면 결과가 표시됩니다.")
+    st.info("① 인증 제품 관리 목록과 ② 시험결과요약서를 업로드하면 인증정보가 표시됩니다.")
