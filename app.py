@@ -515,6 +515,7 @@ if mgmt_file and summary_files:
     result_df = result_df.sort_values("인증번호", na_position="last").reset_index(drop=True)
     result_df.insert(0, "순번", range(1, len(result_df) + 1))
 
+    st.write("") 
     st.subheader("결과 (직접 수정 가능)")
     edited_df = st.data_editor(result_df, use_container_width=True, num_rows="dynamic", height=500)
 
