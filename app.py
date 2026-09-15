@@ -549,4 +549,4 @@ if mgmt_file and summary_files:
     )
 else:
     st.write("")
-    st.info("① 인증 제품 관리 목록과 ② 시험결과요약서를 업로드하면 인증정보가 표시됩니다.")
+    st.info("① 인증 제품 관리 목록과  ② 시험결과요약서를 업로드하면 인증정보가 표시됩니다.")
