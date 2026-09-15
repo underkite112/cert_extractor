@@ -238,17 +238,18 @@ def extract_minutes_table(file_bytes):
 
 
 COUNTRY_EN_MAP = {
+    # 정식 영문 국가명 (Official Name) 기준
     "대한민국": "Republic of Korea",
     "한국": "Republic of Korea",
-    "독일": "Germany",
-    "미국": "United States",
+    "독일": "Federal Republic of Germany",
+    "미국": "United States of America",
     "일본": "Japan",
-    "중국": "China",
+    "중국": "People's Republic of China",
     "대만": "Taiwan",
-    "영국": "United Kingdom",
-    "프랑스": "France",
-    "네덜란드": "Netherlands",
-    "스웨덴": "Sweden",
+    "영국": "United Kingdom of Great Britain and Northern Ireland",
+    "프랑스": "French Republic",
+    "네덜란드": "Kingdom of the Netherlands",
+    "스웨덴": "Kingdom of Sweden",
     "캐나다": "Canada",
 }
 
@@ -400,7 +401,7 @@ if mgmt_file and summary_files:
         인증기준 = mgmt_row["인증기준"] if mgmt_row is not None and "인증기준" in mgmt_row else extracted.get("인증기준(추출)")
 
         manu = extracted.get("제조자(추출)") or 업체명_국문
-        country = extracted.get("제조국가(추출)") or ""
+        country = extracted.get("제조국가(추출)") or "대한민국"  # 표기 없으면 대한민국으로 기본 처리
         제조자국가_국문 = f"{manu} / {country}".strip(" /")
 
         manu_en = 업체명_영문 or manu
