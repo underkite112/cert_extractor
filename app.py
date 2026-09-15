@@ -71,7 +71,6 @@ with col3:
         key=f"minutes_{st.session_state.uploader_key}",
     )
 
-st.write("")
 st.caption(":red[*] 표시된 항목은 필수 업로드입니다. (회의록은 MMoIP 인증범위 보완용 선택 항목)")
 
 
@@ -551,4 +550,5 @@ if mgmt_file and summary_files:
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
 else:
+    st.write("")
     st.info("① 인증 제품 관리 목록과 ② 시험결과요약서를 업로드하면 인증정보가 표시됩니다.")
