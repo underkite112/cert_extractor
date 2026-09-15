@@ -241,16 +241,52 @@ COUNTRY_EN_MAP = {
     # 정식 영문 국가명 (Official Name) 기준
     "대한민국": "Republic of Korea",
     "한국": "Republic of Korea",
-    "독일": "Federal Republic of Germany",
-    "미국": "United States of America",
+    "북한": "Democratic People's Republic of Korea",
     "일본": "Japan",
     "중국": "People's Republic of China",
     "대만": "Taiwan",
+    "홍콩": "Hong Kong",
+    "미국": "United States of America",
+    "캐나다": "Canada",
+    "멕시코": "United Mexican States",
+    "브라질": "Federative Republic of Brazil",
+    "아르헨티나": "Argentine Republic",
+    "독일": "Federal Republic of Germany",
     "영국": "United Kingdom of Great Britain and Northern Ireland",
     "프랑스": "French Republic",
+    "이탈리아": "Italian Republic",
+    "스페인": "Kingdom of Spain",
+    "포르투갈": "Portuguese Republic",
     "네덜란드": "Kingdom of the Netherlands",
+    "벨기에": "Kingdom of Belgium",
     "스웨덴": "Kingdom of Sweden",
-    "캐나다": "Canada",
+    "노르웨이": "Kingdom of Norway",
+    "덴마크": "Kingdom of Denmark",
+    "핀란드": "Republic of Finland",
+    "스위스": "Swiss Confederation",
+    "오스트리아": "Republic of Austria",
+    "그리스": "Hellenic Republic",
+    "폴란드": "Republic of Poland",
+    "체코": "Czech Republic",
+    "헝가리": "Hungary",
+    "아일랜드": "Ireland",
+    "러시아": "Russian Federation",
+    "호주": "Commonwealth of Australia",
+    "뉴질랜드": "New Zealand",
+    "인도": "Republic of India",
+    "싱가포르": "Republic of Singapore",
+    "말레이시아": "Malaysia",
+    "태국": "Kingdom of Thailand",
+    "베트남": "Socialist Republic of Vietnam",
+    "인도네시아": "Republic of Indonesia",
+    "필리핀": "Republic of the Philippines",
+    "이스라엘": "State of Israel",
+    "터키": "Republic of Türkiye",
+    "튀르키예": "Republic of Türkiye",
+    "사우디아라비아": "Kingdom of Saudi Arabia",
+    "아랍에미리트": "United Arab Emirates",
+    "남아프리카공화국": "Republic of South Africa",
+    "이집트": "Arab Republic of Egypt",
 }
 
 
@@ -400,27 +436,32 @@ if mgmt_file and summary_files:
             모델명_전체 = 모델명
         인증기준 = mgmt_row["인증기준"] if mgmt_row is not None and "인증기준" in mgmt_row else extracted.get("인증기준(추출)")
 
+        # 회의록에서 이 건에 해당하는 행 미리 찾아두기 (인증범위 + 제조국 둘 다 참고)
+        minutes_scope, minutes_country = None, None
+        if minutes_file:
+            minutes_df = extract_minutes_table(minutes_file.getvalue())
+            if not minutes_df.empty:
+                proj_col = next((c for c in minutes_df.columns if "프로젝트" in c or "시험번호" in c), None)
+                scope_col = next((c for c in minutes_df.columns if "인증범위" in c), None)
+                country_col = next((c for c in minutes_df.columns if "제조국" in c), None)
+                if proj_col:
+                    m = minutes_df[minutes_df[proj_col].astype(str).str.contains(extracted.get("시험번호") or "!!!", na=False)]
+                    if not m.empty:
+                        if scope_col:
+                            minutes_scope = m.iloc[0][scope_col]
+                        if country_col:
+                            minutes_country = m.iloc[0][country_col]
+
         manu = extracted.get("제조자(추출)") or 업체명_국문
-        country = extracted.get("제조국가(추출)") or "대한민국"  # 표기 없으면 대한민국으로 기본 처리
+        # 제조국: 요약서 → 회의록 → 그래도 없으면 대한민국 기본값
+        country = extracted.get("제조국가(추출)") or minutes_country or "대한민국"
         제조자국가_국문 = f"{manu} / {country}".strip(" /")
 
         manu_en = 업체명_영문 or manu
         country_en = to_country_en(country)
         제조자국가_영문 = f"{manu_en} / {country_en}".strip(" /")
 
-        # 인증범위: (1) 회의록에서 시험번호로 매칭 시도 (MMoIP 등) → (2) 요약서 추출값과 함께
-        #           양식(인증기준) 기준 고정 문구 로직(resolve_scope)에 넣어 최종 결정
-        minutes_scope = None
-        if minutes_file:
-            minutes_df = extract_minutes_table(minutes_file.getvalue())
-            if not minutes_df.empty:
-                proj_col = next((c for c in minutes_df.columns if "프로젝트" in c or "시험번호" in c), None)
-                scope_col = next((c for c in minutes_df.columns if "인증범위" in c), None)
-                if proj_col and scope_col:
-                    m = minutes_df[minutes_df[proj_col].astype(str).str.contains(extracted.get("시험번호") or "!!!", na=False)]
-                    if not m.empty:
-                        minutes_scope = m.iloc[0][scope_col]
-
+        # 인증범위: 요약서 추출값 + 회의록 값을 양식(인증기준) 기준 고정 문구 로직(resolve_scope)에 넣어 최종 결정
         scope = resolve_scope(인증기준, extracted.get("인증범위(추출, 있는경우)"), minutes_scope)
 
         시작일, 만료일 = calc_expiry(extracted.get("인증연월일(추출)"))
