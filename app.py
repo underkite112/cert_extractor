@@ -401,7 +401,7 @@ def _display_width(s):
     return w
 
 
-def autosize_worksheet(ws, df, max_width=60, min_width=8, char_px=0.95, row_height=20):
+def autosize_worksheet(ws, df, max_width=60, min_width=8, char_px=0.95, row_height=35):
     """열 너비는 각 컬럼에서 가장 긴 줄(개행 기준, 한글 가중치 반영) 길이에 맞추고,
     행 높이는 고정값(row_height)으로 설정한다."""
     from openpyxl.utils import get_column_letter
