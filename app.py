@@ -401,9 +401,9 @@ def _display_width(s):
     return w
 
 
-def autosize_worksheet(ws, df, max_width=60, min_width=8, char_px=0.95, line_height=15):
+def autosize_worksheet(ws, df, max_width=60, min_width=8, char_px=0.95, row_height=20):
     """열 너비는 각 컬럼에서 가장 긴 줄(개행 기준, 한글 가중치 반영) 길이에 맞추고,
-    행 높이는 그 행에서 가장 많은 줄 수를 가진 셀에 맞춘다."""
+    행 높이는 고정값(row_height)으로 설정한다."""
     from openpyxl.utils import get_column_letter
 
     for idx, col in enumerate(df.columns, start=1):
@@ -416,12 +416,7 @@ def autosize_worksheet(ws, df, max_width=60, min_width=8, char_px=0.95, line_hei
         ws.column_dimensions[col_letter].width = width
 
     for row_idx in range(2, len(df) + 2):  # 2행부터 (1행은 헤더)
-        max_lines = 1
-        for col in df.columns:
-            val = df.iloc[row_idx - 2][col]
-            n_lines = str(val).count("\n") + 1
-            max_lines = max(max_lines, n_lines)
-        ws.row_dimensions[row_idx].height = line_height * max_lines
+        ws.row_dimensions[row_idx].height = row_height
 
 
 # ──────────────────────────────────────────────────────────────
@@ -542,7 +537,7 @@ if mgmt_file and summary_files:
         ws.freeze_panes = "A2"
 
     st.download_button(
-        "📥 엑셀로 다운로드",
+        "💾 엑셀로 다운로드",
         data=buf.getvalue(),
         file_name="인증서_발급용_데이터.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
